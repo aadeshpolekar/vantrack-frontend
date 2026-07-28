@@ -13,7 +13,7 @@ const STATUS_META = {
 
 function daysUntil(dateStr) {
   if (!dateStr) return null;
-  const end = new Date(dateStr + "T00:00:00");
+  const end = new Date(dateStr);
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return Math.round((end - now) / 86400000);
@@ -475,7 +475,9 @@ export default function VanTrack() {
           <div className="space-y-2">
             {students.map((s) => {
               const meta = STATUS_META[s.status] || STATUS_META.active;
-              const d = daysUntil(s.end_date);
+              console.log("Student:", s);
+console.log("End Date:", s.end_date);
+const d = daysUntil(s.end_date);
               return (
                 <div key={s.id} className="rounded-md p-3 flex items-center justify-between gap-3" style={{ background: "#0F1626", border: `1px solid ${border}` }}>
                   <div className="min-w-0">
