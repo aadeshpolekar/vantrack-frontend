@@ -488,7 +488,7 @@ const d = daysUntil(s.end_date);
                       </span>
                     </div>
                     <div className="text-[11px] truncate mt-0.5" style={{ color: "#7A879C" }}>
-                      {s.school_name} {s.route ? `· ${s.route}` : ""} · {s.parent_phone}
+                      {s.school_name} {s.route ? `· ${s.route}` : ""} · {s.parent_phone} {s.amount ? ` · ₹${s.amount}` : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
