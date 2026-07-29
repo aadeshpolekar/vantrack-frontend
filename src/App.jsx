@@ -69,10 +69,22 @@ export default function VanTrack() {
 
   const [token, setToken] = useState(null);
   const [owner, setOwner] = useState(null);
-  const [authMode, setAuthMode] = useState("login"); // login | signup
+  const [authMode, setAuthMode] = useState("login"); // login | signup | forgot | reset
   const [authForm, setAuthForm] = useState({ name: "", vanName: "", email: "", password: "", phone: "" });
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [resetToken, setResetToken] = useState(
+    new URLSearchParams(window.location.search).get("reset_token") || ""
+  );
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+
+  useEffect(() => {
+    if (resetToken) setAuthMode("reset");
+  }, [resetToken]);
 
   const [schools, setSchools] = useState([]);
   const [students, setStudents] = useState([]);
@@ -157,6 +169,42 @@ export default function VanTrack() {
         setToken(result.token);
         setOwner(result.owner);
       }
+    } catch (err) {
+      setAuthError(err.message || "Something went wrong");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    setAuthError("");
+    setForgotMessage("");
+    setAuthLoading(true);
+    try {
+      const result = await api("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotMessage(result.message || "If that email is registered, a reset link has been sent.");
+    } catch (err) {
+      setAuthError(err.message || "Something went wrong");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault();
+    setAuthError("");
+    setResetMessage("");
+    setAuthLoading(true);
+    try {
+      const result = await api("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token: resetToken, newPassword: resetPassword }),
+      });
+      setResetMessage(result.message || "Password updated. You can now log in.");
     } catch (err) {
       setAuthError(err.message || "Something went wrong");
     } finally {
@@ -270,67 +318,161 @@ export default function VanTrack() {
           </div>
 
           <div className="rounded-lg p-5" style={{ background: panel, border: `1px solid ${border}` }}>
-            <div className="flex mb-4 rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
-              <button
-                onClick={() => { setAuthMode("login"); setAuthError(""); }}
-                className="flex-1 py-2 text-sm font-medium transition-colors"
-                style={{ background: authMode === "login" ? "#1B2440" : "transparent", color: authMode === "login" ? "#F5A623" : "#7A879C" }}
-              >
-                Log in
-              </button>
-              <button
-                onClick={() => { setAuthMode("signup"); setAuthError(""); }}
-                className="flex-1 py-2 text-sm font-medium transition-colors"
-                style={{ background: authMode === "signup" ? "#1B2440" : "transparent", color: authMode === "signup" ? "#F5A623" : "#7A879C" }}
-              >
-                Sign up
-              </button>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-3">
-              {authMode === "signup" && (
-                <>
-                  <Field label="Your name">
-                    <input className={inputCls} style={inputStyle} value={authForm.name}
-                      onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} required />
-                  </Field>
-                  <Field label="Van name">
-                    <input className={inputCls} style={inputStyle} value={authForm.vanName}
-                      onChange={(e) => setAuthForm({ ...authForm, vanName: e.target.value })} required />
-                  </Field>
-                </>
-              )}
-              <Field label="Email">
-                <input type="email" className={inputCls} style={inputStyle} value={authForm.email}
-                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
-              </Field>
-              <Field label="Password">
-                <input type="password" className={inputCls} style={inputStyle} value={authForm.password}
-                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
-              </Field>
-              {authMode === "signup" && (
-                <Field label="Phone (optional)">
-                  <input className={inputCls} style={inputStyle} value={authForm.phone}
-                    onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })} />
-                </Field>
-              )}
-
-              {authError && (
-                <div className="text-sm rounded-md px-3 py-2" style={{ background: "rgba(248,113,113,0.1)", color: "#F87171" }}>
-                  {authError}
+            {(authMode === "login" || authMode === "signup") && (
+              <>
+                <div className="flex mb-4 rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
+                  <button
+                    onClick={() => { setAuthMode("login"); setAuthError(""); }}
+                    className="flex-1 py-2 text-sm font-medium transition-colors"
+                    style={{ background: authMode === "login" ? "#1B2440" : "transparent", color: authMode === "login" ? "#F5A623" : "#7A879C" }}
+                  >
+                    Log in
+                  </button>
+                  <button
+                    onClick={() => { setAuthMode("signup"); setAuthError(""); }}
+                    className="flex-1 py-2 text-sm font-medium transition-colors"
+                    style={{ background: authMode === "signup" ? "#1B2440" : "transparent", color: authMode === "signup" ? "#F5A623" : "#7A879C" }}
+                  >
+                    Sign up
+                  </button>
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2"
-                style={{ background: "#F5A623", color: "#0B1220" }}
-              >
-                {authLoading ? "Please wait…" : authMode === "signup" ? "Create account" : "Log in"}
-                <ChevronRight size={15} />
-              </button>
-            </form>
+                <form onSubmit={handleAuth} className="space-y-3">
+                  {authMode === "signup" && (
+                    <>
+                      <Field label="Your name">
+                        <input className={inputCls} style={inputStyle} value={authForm.name}
+                          onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} required />
+                      </Field>
+                      <Field label="Van name">
+                        <input className={inputCls} style={inputStyle} value={authForm.vanName}
+                          onChange={(e) => setAuthForm({ ...authForm, vanName: e.target.value })} required />
+                      </Field>
+                    </>
+                  )}
+                  <Field label="Email">
+                    <input type="email" className={inputCls} style={inputStyle} value={authForm.email}
+                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
+                  </Field>
+                  <Field label="Password">
+                    <input type="password" className={inputCls} style={inputStyle} value={authForm.password}
+                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
+                  </Field>
+                  {authMode === "signup" && (
+                    <Field label="Phone (optional)">
+                      <input className={inputCls} style={inputStyle} value={authForm.phone}
+                        onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })} />
+                    </Field>
+                  )}
+
+                  {authError && (
+                    <div className="text-sm rounded-md px-3 py-2" style={{ background: "rgba(248,113,113,0.1)", color: "#F87171" }}>
+                      {authError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2"
+                    style={{ background: "#F5A623", color: "#0B1220" }}
+                  >
+                    {authLoading ? "Please wait…" : authMode === "signup" ? "Create account" : "Log in"}
+                    <ChevronRight size={15} />
+                  </button>
+
+                  {authMode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode("forgot"); setAuthError(""); setForgotMessage(""); }}
+                      className="w-full text-center text-xs mt-1"
+                      style={{ color: "#7A879C" }}
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </form>
+              </>
+            )}
+
+            {authMode === "forgot" && (
+              <form onSubmit={handleForgotPassword} className="space-y-3">
+                <div className="text-sm font-semibold mb-1">Reset your password</div>
+                <p className="text-xs mb-2" style={{ color: "#7A879C" }}>
+                  Enter your account email and we'll send you a reset link.
+                </p>
+                <Field label="Email">
+                  <input type="email" className={inputCls} style={inputStyle} value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)} required />
+                </Field>
+
+                {authError && (
+                  <div className="text-sm rounded-md px-3 py-2" style={{ background: "rgba(248,113,113,0.1)", color: "#F87171" }}>
+                    {authError}
+                  </div>
+                )}
+                {forgotMessage && (
+                  <div className="text-sm rounded-md px-3 py-2" style={{ background: "rgba(52,211,153,0.1)", color: "#34D399" }}>
+                    {forgotMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full rounded-md py-2 text-sm font-semibold"
+                  style={{ background: "#F5A623", color: "#0B1220" }}
+                >
+                  {authLoading ? "Please wait…" : "Send reset link"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("login"); setAuthError(""); setForgotMessage(""); }}
+                  className="w-full text-center text-xs"
+                  style={{ color: "#7A879C" }}
+                >
+                  Back to log in
+                </button>
+              </form>
+            )}
+
+            {authMode === "reset" && (
+              <form onSubmit={handleResetPassword} className="space-y-3">
+                <div className="text-sm font-semibold mb-1">Set a new password</div>
+                <Field label="New password">
+                  <input type="password" className={inputCls} style={inputStyle} value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)} required />
+                </Field>
+
+                {authError && (
+                  <div className="text-sm rounded-md px-3 py-2" style={{ background: "rgba(248,113,113,0.1)", color: "#F87171" }}>
+                    {authError}
+                  </div>
+                )}
+                {resetMessage && (
+                  <div className="text-sm rounded-md px-3 py-2" style={{ background: "rgba(52,211,153,0.1)", color: "#34D399" }}>
+                    {resetMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full rounded-md py-2 text-sm font-semibold"
+                  style={{ background: "#F5A623", color: "#0B1220" }}
+                >
+                  {authLoading ? "Please wait…" : "Update password"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("login"); setAuthError(""); setResetMessage(""); setResetToken(""); }}
+                  className="w-full text-center text-xs"
+                  style={{ color: "#7A879C" }}
+                >
+                  Back to log in
+                </button>
+              </form>
+            )}
           </div>
 
           <button
@@ -475,9 +617,7 @@ export default function VanTrack() {
           <div className="space-y-2">
             {students.map((s) => {
               const meta = STATUS_META[s.status] || STATUS_META.active;
-              console.log("Student:", s);
-console.log("End Date:", s.end_date);
-const d = daysUntil(s.end_date);
+              const d = daysUntil(s.end_date);
               return (
                 <div key={s.id} className="rounded-md p-3 flex items-center justify-between gap-3" style={{ background: "#0F1626", border: `1px solid ${border}` }}>
                   <div className="min-w-0">
@@ -488,14 +628,14 @@ const d = daysUntil(s.end_date);
                       </span>
                     </div>
                     <div className="text-[11px] truncate mt-0.5" style={{ color: "#7A879C" }}>
-  {s.school_name} {s.route ? `· ${s.route}` : ""} · {s.parent_phone}
-</div>
-{s.amount ? (
-  <div className="text-[11px] mt-0.5" style={{ color: "#F5A623" }}>
-    ₹{s.amount}
-  </div>
-) : null}
- </div>
+                      {s.school_name} {s.route ? `· ${s.route}` : ""} · {s.parent_phone}
+                    </div>
+                    {s.amount ? (
+                      <div className="text-[11px] mt-0.5" style={{ color: "#F5A623" }}>
+                        ₹{s.amount}
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="text-right">
                       <SplitDigits value={d === null ? "--" : Math.abs(d)} />
