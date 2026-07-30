@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Bus, Settings, LogOut, Plus, X, RefreshCw, Trash2, ChevronRight, AlertTriangle, CheckCircle2, Clock, School, Users, Globe } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Bus, Settings, LogOut, Plus, X, RefreshCw, Trash2, ChevronRight, ChevronLeft, AlertTriangle, CheckCircle2, Clock, School, Users, Globe, Search as SearchIcon } from "lucide-react";
 
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 `;
 
 const LANG_KEY = "vantrack_lang";
+const TOKEN_KEY = "vantrack_token";
+const OWNER_KEY = "vantrack_owner";
+const PAGE_SIZE = 8;
 
 const LANGUAGES = [
   { code: "en", label: "English" },
@@ -26,11 +29,13 @@ const TRANSLATIONS = {
     btn_updatePassword: "Update password", label_apiBase: "API:",
     field_backendUrl: "Backend API base URL",
     text_backendUrlHelp: "This is the URL Railway (or your host) gave you when you deployed the backend.",
+    text_backendUrlMissing: "Backend URL is not set. Enter it below.",
     status_onRoute: "ON ROUTE", status_dueSoon: "DUE SOON", status_lapsed: "LAPSED",
     heading_schools: "Schools", text_noSchools: "No schools yet — add one below.",
     placeholder_schoolName: "e.g. St. Xavier's High School", btn_add: "Add",
     heading_roster: "Roster", btn_addStudent: "Add student",
     text_noStudents: "No students on the roster yet.",
+    text_noResults: "No students match your search or filters.",
     days_noData: "no data", days_over: "days over", days_left: "days left",
     title_renew: "Renew", title_remove: "Remove", title_refresh: "Refresh",
     title_settings: "Settings", title_logout: "Log out", title_language: "Language",
@@ -39,10 +44,21 @@ const TRANSLATIONS = {
     field_parentPhone: "Parent phone", field_route: "Route (optional)", field_cycle: "Cycle",
     field_startDate: "Start date", field_amount: "Amount", btn_addToRoster: "Add to roster",
     modal_renew: "Renew", btn_recordPayment: "Record payment",
-    confirm_removeStudent: "Remove {name} from the roster?",
+    heading_confirmRemove: "Remove student?",
+    confirm_removeStudent: "Remove {name} from the roster? This cannot be undone.",
+    btn_cancel: "Cancel", btn_remove: "Remove",
     error_fillRequired: "Fill in name, school, parent phone and start date.",
+    error_invalidEmail: "Enter a valid email address.",
+    error_invalidPhone: "Phone number must be 10 digits.",
+    error_weakPassword: "Password must be at least 8 characters.",
     text_chooseLanguage: "Choose your language", text_chooseLanguageSub: "You can change this anytime.",
     btn_continue: "Continue",
+    placeholder_search: "Search by student or school…",
+    filter_all: "All", filter_active: "Active", filter_expiring: "Due soon", filter_expired: "Expired",
+    sort_name: "Name", sort_school: "School", sort_days: "Days left",
+    label_sort: "Sort by",
+    pagination_prev: "Prev", pagination_next: "Next",
+    pagination_page: "Page {page} of {total}",
   },
   hi: {
     tab_login: "लॉग इन", tab_signup: "साइन अप",
@@ -56,11 +72,13 @@ const TRANSLATIONS = {
     btn_updatePassword: "पासवर्ड अपडेट करें", label_apiBase: "API:",
     field_backendUrl: "बैकएंड API बेस URL",
     text_backendUrlHelp: "यह वह URL है जो Railway (या आपकी होस्टिंग सेवा) ने बैकएंड डिप्लॉय करने पर दिया था।",
+    text_backendUrlMissing: "बैकएंड URL सेट नहीं है। नीचे दर्ज करें।",
     status_onRoute: "रूट पर", status_dueSoon: "जल्द देय", status_lapsed: "समाप्त",
     heading_schools: "स्कूल", text_noSchools: "अभी तक कोई स्कूल नहीं — नीचे एक जोड़ें।",
     placeholder_schoolName: "जैसे सेंट जेवियर हाई स्कूल", btn_add: "जोड़ें",
     heading_roster: "सूची", btn_addStudent: "छात्र जोड़ें",
     text_noStudents: "सूची में अभी तक कोई छात्र नहीं है।",
+    text_noResults: "आपकी खोज या फ़िल्टर से कोई छात्र मेल नहीं खाता।",
     days_noData: "डेटा नहीं", days_over: "दिन बीत गए", days_left: "दिन बाकी",
     title_renew: "नवीनीकरण", title_remove: "हटाएं", title_refresh: "रीफ्रेश",
     title_settings: "सेटिंग्स", title_logout: "लॉग आउट", title_language: "भाषा",
@@ -69,10 +87,21 @@ const TRANSLATIONS = {
     field_parentPhone: "माता-पिता का फ़ोन", field_route: "रूट (वैकल्पिक)", field_cycle: "चक्र",
     field_startDate: "प्रारंभ तिथि", field_amount: "राशि", btn_addToRoster: "सूची में जोड़ें",
     modal_renew: "नवीनीकरण", btn_recordPayment: "भुगतान दर्ज करें",
-    confirm_removeStudent: "{name} को सूची से हटाएं?",
+    heading_confirmRemove: "छात्र हटाएं?",
+    confirm_removeStudent: "{name} को सूची से हटाएं? यह पूर्ववत नहीं किया जा सकता।",
+    btn_cancel: "रद्द करें", btn_remove: "हटाएं",
     error_fillRequired: "नाम, स्कूल, माता-पिता का फ़ोन और प्रारंभ तिथि भरें।",
+    error_invalidEmail: "एक वैध ईमेल पता दर्ज करें।",
+    error_invalidPhone: "फ़ोन नंबर 10 अंकों का होना चाहिए।",
+    error_weakPassword: "पासवर्ड कम से कम 8 अक्षर का होना चाहिए।",
     text_chooseLanguage: "अपनी भाषा चुनें", text_chooseLanguageSub: "आप इसे कभी भी बदल सकते हैं।",
     btn_continue: "जारी रखें",
+    placeholder_search: "छात्र या स्कूल खोजें…",
+    filter_all: "सभी", filter_active: "सक्रिय", filter_expiring: "जल्द देय", filter_expired: "समाप्त",
+    sort_name: "नाम", sort_school: "स्कूल", sort_days: "बचे दिन",
+    label_sort: "क्रमबद्ध करें",
+    pagination_prev: "पिछला", pagination_next: "अगला",
+    pagination_page: "पृष्ठ {page} / {total}",
   },
   mr: {
     tab_login: "लॉग इन", tab_signup: "साइन अप",
@@ -86,11 +115,13 @@ const TRANSLATIONS = {
     btn_updatePassword: "पासवर्ड अपडेट करा", label_apiBase: "API:",
     field_backendUrl: "बॅकएंड API बेस URL",
     text_backendUrlHelp: "बॅकएंड डिप्लॉय केल्यावर Railway (किंवा तुमच्या होस्टने) दिलेला हा URL आहे.",
+    text_backendUrlMissing: "बॅकएंड URL सेट केलेला नाही. खाली टाका.",
     status_onRoute: "मार्गावर", status_dueSoon: "लवकरच देय", status_lapsed: "संपले",
     heading_schools: "शाळा", text_noSchools: "अजून शाळा नाही — खाली एक जोडा.",
     placeholder_schoolName: "उदा. सेंट झेवियर हायस्कूल", btn_add: "जोडा",
     heading_roster: "यादी", btn_addStudent: "विद्यार्थी जोडा",
     text_noStudents: "यादीत अजून विद्यार्थी नाहीत.",
+    text_noResults: "तुमच्या शोध किंवा फिल्टरशी कोणताही विद्यार्थी जुळत नाही.",
     days_noData: "माहिती नाही", days_over: "दिवस उलटले", days_left: "दिवस शिल्लक",
     title_renew: "नूतनीकरण", title_remove: "काढा", title_refresh: "रिफ्रेश",
     title_settings: "सेटिंग्ज", title_logout: "लॉग आउट", title_language: "भाषा",
@@ -99,10 +130,21 @@ const TRANSLATIONS = {
     field_parentPhone: "पालकांचा फोन", field_route: "मार्ग (ऐच्छिक)", field_cycle: "सायकल",
     field_startDate: "सुरुवात तारीख", field_amount: "रक्कम", btn_addToRoster: "यादीत जोडा",
     modal_renew: "नूतनीकरण", btn_recordPayment: "पेमेंट नोंदवा",
-    confirm_removeStudent: "{name} ला यादीतून काढायचे का?",
+    heading_confirmRemove: "विद्यार्थी काढायचा?",
+    confirm_removeStudent: "{name} ला यादीतून काढायचे का? हे पूर्ववत करता येणार नाही.",
+    btn_cancel: "रद्द करा", btn_remove: "काढा",
     error_fillRequired: "नाव, शाळा, पालकांचा फोन आणि सुरुवात तारीख भरा.",
+    error_invalidEmail: "वैध ईमेल पत्ता टाका.",
+    error_invalidPhone: "फोन नंबर 10 अंकी असावा.",
+    error_weakPassword: "पासवर्ड किमान 8 अक्षरांचा असावा.",
     text_chooseLanguage: "तुमची भाषा निवडा", text_chooseLanguageSub: "तुम्ही ही कधीही बदलू शकता.",
     btn_continue: "पुढे चला",
+    placeholder_search: "विद्यार्थी किंवा शाळा शोधा…",
+    filter_all: "सर्व", filter_active: "सक्रिय", filter_expiring: "लवकरच देय", filter_expired: "संपले",
+    sort_name: "नाव", sort_school: "शाळा", sort_days: "उरलेले दिवस",
+    label_sort: "यानुसार क्रमवारी",
+    pagination_prev: "मागील", pagination_next: "पुढील",
+    pagination_page: "पृष्ठ {page} / {total}",
   },
 };
 
@@ -118,6 +160,13 @@ function daysUntil(dateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return Math.round((end - now) / 86400000);
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+function isValidPhone(phone) {
+  return /^\d{10}$/.test(phone.replace(/\D/g, ""));
 }
 
 function SplitDigits({ value }) {
@@ -154,6 +203,10 @@ function Field({ label, children }) {
   );
 }
 
+function Spinner({ size = 14 }) {
+  return <RefreshCw size={size} className="animate-spin" />;
+}
+
 const inputCls =
   "w-full rounded-md px-3 py-2 text-sm outline-none transition-colors";
 const inputStyle = {
@@ -163,9 +216,7 @@ const inputStyle = {
 };
 
 export default function VanTrack() {
-  const [apiBase, setApiBase] = useState(
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
-  );
+  const [apiBase, setApiBase] = useState(import.meta.env.VITE_API_BASE_URL || "");
   const [showSettings, setShowSettings] = useState(false);
 
   const [lang, setLangState] = useState(() => localStorage.getItem(LANG_KEY) || "");
@@ -186,8 +237,19 @@ export default function VanTrack() {
     return str;
   }
 
-  const [token, setToken] = useState(null);
-  const [owner, setOwner] = useState(null);
+  const [token, setTokenState] = useState(() => localStorage.getItem(TOKEN_KEY) || null);
+  const [owner, setOwnerState] = useState(() => {
+    const saved = localStorage.getItem(OWNER_KEY);
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  function setSession(newToken, newOwner) {
+    if (newToken) localStorage.setItem(TOKEN_KEY, newToken); else localStorage.removeItem(TOKEN_KEY);
+    if (newOwner) localStorage.setItem(OWNER_KEY, JSON.stringify(newOwner)); else localStorage.removeItem(OWNER_KEY);
+    setTokenState(newToken);
+    setOwnerState(newOwner);
+  }
+
   const [authMode, setAuthMode] = useState("login"); // login | signup | forgot | reset
   const [authForm, setAuthForm] = useState({ name: "", vanName: "", email: "", password: "", phone: "" });
   const [authError, setAuthError] = useState("");
@@ -211,16 +273,28 @@ export default function VanTrack() {
   const [loading, setLoading] = useState(false);
 
   const [newSchoolName, setNewSchoolName] = useState("");
+  const [addSchoolLoading, setAddSchoolLoading] = useState(false);
+
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [studentForm, setStudentForm] = useState({
     name: "", schoolId: "", parentName: "", parentPhone: "", route: "",
     cycleMonths: "1", startDate: new Date().toISOString().slice(0, 10), amount: "",
   });
   const [addStudentError, setAddStudentError] = useState("");
+  const [addStudentLoading, setAddStudentLoading] = useState(false);
 
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewForm, setRenewForm] = useState({ cycleMonths: "1", startDate: new Date().toISOString().slice(0, 10), amount: "" });
   const [renewError, setRenewError] = useState("");
+  const [renewLoading, setRenewLoading] = useState(false);
+
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+  const [page, setPage] = useState(1);
 
   const api = useCallback(
     async (path, options = {}) => {
@@ -268,6 +342,20 @@ export default function VanTrack() {
   async function handleAuth(e) {
     e.preventDefault();
     setAuthError("");
+
+    if (!isValidEmail(authForm.email)) {
+      setAuthError(t("error_invalidEmail"));
+      return;
+    }
+    if (authForm.password.length < 8) {
+      setAuthError(t("error_weakPassword"));
+      return;
+    }
+    if (authMode === "signup" && authForm.phone && !isValidPhone(authForm.phone)) {
+      setAuthError(t("error_invalidPhone"));
+      return;
+    }
+
     setAuthLoading(true);
     try {
       if (authMode === "signup") {
@@ -278,15 +366,13 @@ export default function VanTrack() {
             email: authForm.email, password: authForm.password, phone: authForm.phone,
           }),
         });
-        setToken(result.token);
-        setOwner(result.owner);
+        setSession(result.token, result.owner);
       } else {
         const result = await api("/api/auth/login", {
           method: "POST",
           body: JSON.stringify({ email: authForm.email, password: authForm.password }),
         });
-        setToken(result.token);
-        setOwner(result.owner);
+        setSession(result.token, result.owner);
       }
     } catch (err) {
       setAuthError(err.message || "Something went wrong");
@@ -299,6 +385,10 @@ export default function VanTrack() {
     e.preventDefault();
     setAuthError("");
     setForgotMessage("");
+    if (!isValidEmail(forgotEmail)) {
+      setAuthError(t("error_invalidEmail"));
+      return;
+    }
     setAuthLoading(true);
     try {
       const result = await api("/api/auth/forgot-password", {
@@ -317,6 +407,10 @@ export default function VanTrack() {
     e.preventDefault();
     setAuthError("");
     setResetMessage("");
+    if (resetPassword.length < 8) {
+      setAuthError(t("error_weakPassword"));
+      return;
+    }
     setAuthLoading(true);
     try {
       const result = await api("/api/auth/reset-password", {
@@ -332,8 +426,7 @@ export default function VanTrack() {
   }
 
   function logOut() {
-    setToken(null);
-    setOwner(null);
+    setSession(null, null);
     setSchools([]);
     setStudents([]);
     setAuthForm({ name: "", vanName: "", email: "", password: "", phone: "" });
@@ -342,12 +435,15 @@ export default function VanTrack() {
   async function handleAddSchool(e) {
     e.preventDefault();
     if (!newSchoolName.trim()) return;
+    setAddSchoolLoading(true);
     try {
       await api("/api/schools", { method: "POST", body: JSON.stringify({ name: newSchoolName.trim() }) });
       setNewSchoolName("");
-      loadData();
+      await loadData();
     } catch (err) {
       setLoadError(err.message);
+    } finally {
+      setAddSchoolLoading(false);
     }
   }
 
@@ -358,6 +454,11 @@ export default function VanTrack() {
       setAddStudentError(t("error_fillRequired"));
       return;
     }
+    if (!isValidPhone(studentForm.parentPhone)) {
+      setAddStudentError(t("error_invalidPhone"));
+      return;
+    }
+    setAddStudentLoading(true);
     try {
       await api("/api/students", {
         method: "POST",
@@ -377,15 +478,18 @@ export default function VanTrack() {
         name: "", schoolId: "", parentName: "", parentPhone: "", route: "",
         cycleMonths: "1", startDate: new Date().toISOString().slice(0, 10), amount: "",
       });
-      loadData();
+      await loadData();
     } catch (err) {
       setAddStudentError(err.message);
+    } finally {
+      setAddStudentLoading(false);
     }
   }
 
   async function handleRenew(e) {
     e.preventDefault();
     setRenewError("");
+    setRenewLoading(true);
     try {
       await api(`/api/students/${renewTarget.id}/payments`, {
         method: "POST",
@@ -396,19 +500,25 @@ export default function VanTrack() {
         }),
       });
       setRenewTarget(null);
-      loadData();
+      await loadData();
     } catch (err) {
       setRenewError(err.message);
+    } finally {
+      setRenewLoading(false);
     }
   }
 
-  async function handleDelete(student) {
-    if (!window.confirm(t("confirm_removeStudent", { name: student.name }))) return;
+  async function confirmDelete() {
+    const student = confirmTarget;
+    setConfirmTarget(null);
+    setDeletingId(student.id);
     try {
       await api(`/api/students/${student.id}`, { method: "DELETE" });
-      loadData();
+      await loadData();
     } catch (err) {
       setLoadError(err.message);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -422,6 +532,38 @@ export default function VanTrack() {
     color: "#E8ECF4",
     fontFamily: "'Space Grotesk', system-ui, sans-serif",
   };
+
+  // ---------- Filtering / sorting / pagination ----------
+  const visibleStudents = useMemo(() => {
+    let list = students.map((s) => ({ ...s, _days: daysUntil(s.end_date) }));
+
+    if (statusFilter !== "all") {
+      list = list.filter((s) => s.status === statusFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (s) => s.name?.toLowerCase().includes(q) || s.school_name?.toLowerCase().includes(q)
+      );
+    }
+    list.sort((a, b) => {
+      if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+      if (sortBy === "school") return (a.school_name || "").localeCompare(b.school_name || "");
+      if (sortBy === "days") {
+        const da = a._days === null ? Infinity : a._days;
+        const db = b._days === null ? Infinity : b._days;
+        return da - db;
+      }
+      return 0;
+    });
+    return list;
+  }, [students, statusFilter, searchQuery, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleStudents.length / PAGE_SIZE));
+  const pagedStudents = visibleStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [searchQuery, statusFilter, sortBy]);
+  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
   function LangPickerOverlay({ onClose }) {
     return (
@@ -518,7 +660,7 @@ export default function VanTrack() {
                   </Field>
                   <Field label={t("field_password")}>
                     <input type="password" className={inputCls} style={inputStyle} value={authForm.password}
-                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
+                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required minLength={8} />
                   </Field>
                   {authMode === "signup" && (
                     <Field label={t("field_phoneOptional")}>
@@ -536,11 +678,12 @@ export default function VanTrack() {
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2"
+                    className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                     style={{ background: "#F5A623", color: "#0B1220" }}
                   >
+                    {authLoading ? <Spinner /> : null}
                     {authLoading ? t("btn_pleaseWait") : authMode === "signup" ? t("btn_createAccount") : t("btn_login")}
-                    <ChevronRight size={15} />
+                    {!authLoading && <ChevronRight size={15} />}
                   </button>
 
                   {authMode === "login" && (
@@ -582,9 +725,10 @@ export default function VanTrack() {
                 <button
                   type="submit"
                   disabled={authLoading}
-                  className="w-full rounded-md py-2 text-sm font-semibold"
+                  className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                   style={{ background: "#F5A623", color: "#0B1220" }}
                 >
+                  {authLoading ? <Spinner /> : null}
                   {authLoading ? t("btn_pleaseWait") : t("btn_sendResetLink")}
                 </button>
                 <button
@@ -603,7 +747,7 @@ export default function VanTrack() {
                 <div className="text-sm font-semibold mb-1">{t("heading_setNewPassword")}</div>
                 <Field label={t("field_newPassword")}>
                   <input type="password" className={inputCls} style={inputStyle} value={resetPassword}
-                    onChange={(e) => setResetPassword(e.target.value)} required />
+                    onChange={(e) => setResetPassword(e.target.value)} required minLength={8} />
                 </Field>
 
                 {authError && (
@@ -620,9 +764,10 @@ export default function VanTrack() {
                 <button
                   type="submit"
                   disabled={authLoading}
-                  className="w-full rounded-md py-2 text-sm font-semibold"
+                  className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                   style={{ background: "#F5A623", color: "#0B1220" }}
                 >
+                  {authLoading ? <Spinner /> : null}
                   {authLoading ? t("btn_pleaseWait") : t("btn_updatePassword")}
                 </button>
                 <button
@@ -643,7 +788,7 @@ export default function VanTrack() {
               className="flex items-center gap-1.5 text-xs"
               style={{ color: "#7A879C" }}
             >
-              <Settings size={13} /> {t("label_apiBase")} {apiBase}
+              <Settings size={13} /> {t("label_apiBase")} {apiBase || "—"}
             </button>
             <button
               onClick={() => setShowLangPicker(true)}
@@ -654,14 +799,14 @@ export default function VanTrack() {
               <Globe size={13} /> {LANGUAGES.find((l) => l.code === lang)?.label}
             </button>
           </div>
-          {showSettings && (
+          {(showSettings || !apiBase) && (
             <div className="mt-2 rounded-md p-3" style={{ background: panel, border: `1px solid ${border}` }}>
               <Field label={t("field_backendUrl")}>
                 <input className={inputCls} style={inputStyle} value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)} placeholder="https://your-app.up.railway.app" />
               </Field>
               <p className="text-[11px] mt-2" style={{ color: "#7A879C" }}>
-                {t("text_backendUrlHelp")}
+                {apiBase ? t("text_backendUrlHelp") : t("text_backendUrlMissing")}
               </p>
             </div>
           )}
@@ -680,6 +825,27 @@ export default function VanTrack() {
     <div style={pageStyle}>
       <style>{FONT_IMPORT}</style>
       {showLangPicker && <LangPickerOverlay onClose={() => setShowLangPicker(false)} />}
+
+      {confirmTarget && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-30" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-xs rounded-lg p-5" style={{ background: panel, border: `1px solid ${border}` }}>
+            <div className="text-sm font-semibold mb-2">{t("heading_confirmRemove")}</div>
+            <p className="text-xs mb-4" style={{ color: "#7A879C" }}>
+              {t("confirm_removeStudent", { name: confirmTarget.name })}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmTarget(null)} className="flex-1 rounded-md py-2 text-sm font-medium"
+                style={{ background: "#1B2440", color: "#E8ECF4", border: `1px solid ${border}` }}>
+                {t("btn_cancel")}
+              </button>
+              <button onClick={confirmDelete} className="flex-1 rounded-md py-2 text-sm font-semibold"
+                style={{ background: "#F87171", color: "#0B1220" }}>
+                {t("btn_remove")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-10" style={{ background: bg, borderBottom: `1px solid ${border}` }}>
         <div className="flex items-center gap-2">
@@ -723,13 +889,18 @@ export default function VanTrack() {
             const meta = STATUS_META_KEYS[key];
             const Icon = meta.icon;
             return (
-              <div key={key} className="rounded-lg p-3" style={{ background: panel, border: `1px solid ${border}` }}>
+              <button
+                key={key}
+                onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
+                className="rounded-lg p-3 text-left"
+                style={{ background: panel, border: `1px solid ${statusFilter === key ? "#F5A623" : border}` }}
+              >
                 <Icon size={15} color={meta.color} />
                 <div className="text-2xl font-bold mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   {counts[key] || 0}
                 </div>
                 <div className="text-[10px] uppercase tracking-wide" style={{ color: "#7A879C" }}>{t(meta.key)}</div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -762,7 +933,8 @@ export default function VanTrack() {
               value={newSchoolName}
               onChange={(e) => setNewSchoolName(e.target.value)}
             />
-            <button type="submit" className="rounded-md px-3 text-sm font-medium shrink-0" style={{ background: "#1B2440", color: "#F5A623", border: `1px solid ${border}` }}>
+            <button type="submit" disabled={addSchoolLoading} className="rounded-md px-3 text-sm font-medium shrink-0 flex items-center gap-1.5 disabled:opacity-60" style={{ background: "#1B2440", color: "#F5A623", border: `1px solid ${border}` }}>
+              {addSchoolLoading ? <Spinner size={13} /> : null}
               {t("btn_add")}
             </button>
           </form>
@@ -784,16 +956,40 @@ export default function VanTrack() {
             </button>
           </div>
 
+          {/* Search + sort */}
+          <div className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" color="#7A879C" />
+              <input
+                className={inputCls} style={{ ...inputStyle, paddingLeft: "28px" }}
+                placeholder={t("placeholder_search")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <select className={inputCls} style={{ ...inputStyle, width: "auto" }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="name">{t("sort_name")}</option>
+              <option value="school">{t("sort_school")}</option>
+              <option value="days">{t("sort_days")}</option>
+            </select>
+          </div>
+
           {students.length === 0 && !loading && (
             <div className="text-sm text-center py-8" style={{ color: "#7A879C" }}>
               {t("text_noStudents")}
             </div>
           )}
 
+          {students.length > 0 && visibleStudents.length === 0 && (
+            <div className="text-sm text-center py-8" style={{ color: "#7A879C" }}>
+              {t("text_noResults")}
+            </div>
+          )}
+
           <div className="space-y-2">
-            {students.map((s) => {
+            {pagedStudents.map((s) => {
               const meta = STATUS_META_KEYS[s.status] || STATUS_META_KEYS.active;
-              const d = daysUntil(s.end_date);
+              const d = s._days;
               return (
                 <div key={s.id} className="rounded-md p-3 flex items-center justify-between gap-3" style={{ background: "#0F1626", border: `1px solid ${border}` }}>
                   <div className="min-w-0">
@@ -826,16 +1022,41 @@ export default function VanTrack() {
                       <RefreshCw size={13} />
                     </button>
                     <button
-                      onClick={() => handleDelete(s)}
-                      className="p-2 rounded-md" style={{ background: "#1B2440", color: "#F87171" }} title={t("title_remove")}
+                      onClick={() => setConfirmTarget(s)}
+                      disabled={deletingId === s.id}
+                      className="p-2 rounded-md disabled:opacity-60" style={{ background: "#1B2440", color: "#F87171" }} title={t("title_remove")}
                     >
-                      <Trash2 size={13} />
+                      {deletingId === s.id ? <Spinner size={13} /> : <Trash2 size={13} />}
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {visibleStudents.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-3">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-md disabled:opacity-40"
+                style={{ background: "#1B2440", color: "#E8ECF4", border: `1px solid ${border}` }}
+              >
+                <ChevronLeft size={13} /> {t("pagination_prev")}
+              </button>
+              <span className="text-xs" style={{ color: "#7A879C" }}>
+                {t("pagination_page", { page, total: totalPages })}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-md disabled:opacity-40"
+                style={{ background: "#1B2440", color: "#E8ECF4", border: `1px solid ${border}` }}
+              >
+                {t("pagination_next")} <ChevronRight size={13} />
+              </button>
+            </div>
+          )}
         </div>
       </main>
 
@@ -866,7 +1087,7 @@ export default function VanTrack() {
                 </Field>
                 <Field label={t("field_parentPhone")}>
                   <input className={inputCls} style={inputStyle} value={studentForm.parentPhone}
-                    onChange={(e) => setStudentForm({ ...studentForm, parentPhone: e.target.value })} required />
+                    onChange={(e) => setStudentForm({ ...studentForm, parentPhone: e.target.value })} required maxLength={10} />
                 </Field>
               </div>
               <Field label={t("field_route")}>
@@ -898,7 +1119,8 @@ export default function VanTrack() {
                 </div>
               )}
 
-              <button type="submit" className="w-full rounded-md py-2 text-sm font-semibold" style={{ background: "#F5A623", color: "#0B1220" }}>
+              <button type="submit" disabled={addStudentLoading} className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: "#F5A623", color: "#0B1220" }}>
+                {addStudentLoading ? <Spinner /> : null}
                 {t("btn_addToRoster")}
               </button>
             </form>
@@ -940,7 +1162,8 @@ export default function VanTrack() {
                 </div>
               )}
 
-              <button type="submit" className="w-full rounded-md py-2 text-sm font-semibold" style={{ background: "#F5A623", color: "#0B1220" }}>
+              <button type="submit" disabled={renewLoading} className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: "#F5A623", color: "#0B1220" }}>
+                {renewLoading ? <Spinner /> : null}
                 {t("btn_recordPayment")}
               </button>
             </form>
