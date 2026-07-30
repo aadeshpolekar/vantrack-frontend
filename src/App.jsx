@@ -1,14 +1,115 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Bus, Settings, LogOut, Plus, X, RefreshCw, Trash2, ChevronRight, AlertTriangle, CheckCircle2, Clock, School, Users } from "lucide-react";
+import { Bus, Settings, LogOut, Plus, X, RefreshCw, Trash2, ChevronRight, AlertTriangle, CheckCircle2, Clock, School, Users, Globe } from "lucide-react";
 
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 `;
 
-const STATUS_META = {
-  active:   { label: "ON ROUTE",  color: "#34D399", bg: "rgba(52,211,153,0.12)", icon: CheckCircle2 },
-  expiring: { label: "DUE SOON",  color: "#F5A623", bg: "rgba(245,166,35,0.14)", icon: Clock },
-  expired:  { label: "LAPSED",    color: "#F87171", bg: "rgba(248,113,113,0.14)", icon: AlertTriangle },
+const LANG_KEY = "vantrack_lang";
+
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "mr", label: "मराठी" },
+];
+
+const TRANSLATIONS = {
+  en: {
+    tab_login: "Log in", tab_signup: "Sign up",
+    field_yourName: "Your name", field_vanName: "Van name", field_email: "Email",
+    field_password: "Password", field_phoneOptional: "Phone (optional)",
+    btn_createAccount: "Create account", btn_login: "Log in", btn_pleaseWait: "Please wait…",
+    link_forgotPassword: "Forgot password?", heading_resetPassword: "Reset your password",
+    text_resetInstructions: "Enter your account email and we'll send you a reset link.",
+    btn_sendResetLink: "Send reset link", link_backToLogin: "Back to log in",
+    heading_setNewPassword: "Set a new password", field_newPassword: "New password",
+    btn_updatePassword: "Update password", label_apiBase: "API:",
+    field_backendUrl: "Backend API base URL",
+    text_backendUrlHelp: "This is the URL Railway (or your host) gave you when you deployed the backend.",
+    status_onRoute: "ON ROUTE", status_dueSoon: "DUE SOON", status_lapsed: "LAPSED",
+    heading_schools: "Schools", text_noSchools: "No schools yet — add one below.",
+    placeholder_schoolName: "e.g. St. Xavier's High School", btn_add: "Add",
+    heading_roster: "Roster", btn_addStudent: "Add student",
+    text_noStudents: "No students on the roster yet.",
+    days_noData: "no data", days_over: "days over", days_left: "days left",
+    title_renew: "Renew", title_remove: "Remove", title_refresh: "Refresh",
+    title_settings: "Settings", title_logout: "Log out", title_language: "Language",
+    modal_addStudent: "Add student", field_studentName: "Student name", field_school: "School",
+    option_selectSchool: "Select school…", field_parentName: "Parent name",
+    field_parentPhone: "Parent phone", field_route: "Route (optional)", field_cycle: "Cycle",
+    field_startDate: "Start date", field_amount: "Amount", btn_addToRoster: "Add to roster",
+    modal_renew: "Renew", btn_recordPayment: "Record payment",
+    confirm_removeStudent: "Remove {name} from the roster?",
+    error_fillRequired: "Fill in name, school, parent phone and start date.",
+    text_chooseLanguage: "Choose your language", text_chooseLanguageSub: "You can change this anytime.",
+    btn_continue: "Continue",
+  },
+  hi: {
+    tab_login: "लॉग इन", tab_signup: "साइन अप",
+    field_yourName: "आपका नाम", field_vanName: "वैन का नाम", field_email: "ईमेल",
+    field_password: "पासवर्ड", field_phoneOptional: "फ़ोन (वैकल्पिक)",
+    btn_createAccount: "खाता बनाएं", btn_login: "लॉग इन", btn_pleaseWait: "कृपया प्रतीक्षा करें…",
+    link_forgotPassword: "पासवर्ड भूल गए?", heading_resetPassword: "अपना पासवर्ड रीसेट करें",
+    text_resetInstructions: "अपना खाता ईमेल दर्ज करें, हम आपको रीसेट लिंक भेजेंगे।",
+    btn_sendResetLink: "रीसेट लिंक भेजें", link_backToLogin: "लॉग इन पर वापस जाएं",
+    heading_setNewPassword: "नया पासवर्ड सेट करें", field_newPassword: "नया पासवर्ड",
+    btn_updatePassword: "पासवर्ड अपडेट करें", label_apiBase: "API:",
+    field_backendUrl: "बैकएंड API बेस URL",
+    text_backendUrlHelp: "यह वह URL है जो Railway (या आपकी होस्टिंग सेवा) ने बैकएंड डिप्लॉय करने पर दिया था।",
+    status_onRoute: "रूट पर", status_dueSoon: "जल्द देय", status_lapsed: "समाप्त",
+    heading_schools: "स्कूल", text_noSchools: "अभी तक कोई स्कूल नहीं — नीचे एक जोड़ें।",
+    placeholder_schoolName: "जैसे सेंट जेवियर हाई स्कूल", btn_add: "जोड़ें",
+    heading_roster: "सूची", btn_addStudent: "छात्र जोड़ें",
+    text_noStudents: "सूची में अभी तक कोई छात्र नहीं है।",
+    days_noData: "डेटा नहीं", days_over: "दिन बीत गए", days_left: "दिन बाकी",
+    title_renew: "नवीनीकरण", title_remove: "हटाएं", title_refresh: "रीफ्रेश",
+    title_settings: "सेटिंग्स", title_logout: "लॉग आउट", title_language: "भाषा",
+    modal_addStudent: "छात्र जोड़ें", field_studentName: "छात्र का नाम", field_school: "स्कूल",
+    option_selectSchool: "स्कूल चुनें…", field_parentName: "माता-पिता का नाम",
+    field_parentPhone: "माता-पिता का फ़ोन", field_route: "रूट (वैकल्पिक)", field_cycle: "चक्र",
+    field_startDate: "प्रारंभ तिथि", field_amount: "राशि", btn_addToRoster: "सूची में जोड़ें",
+    modal_renew: "नवीनीकरण", btn_recordPayment: "भुगतान दर्ज करें",
+    confirm_removeStudent: "{name} को सूची से हटाएं?",
+    error_fillRequired: "नाम, स्कूल, माता-पिता का फ़ोन और प्रारंभ तिथि भरें।",
+    text_chooseLanguage: "अपनी भाषा चुनें", text_chooseLanguageSub: "आप इसे कभी भी बदल सकते हैं।",
+    btn_continue: "जारी रखें",
+  },
+  mr: {
+    tab_login: "लॉग इन", tab_signup: "साइन अप",
+    field_yourName: "तुमचे नाव", field_vanName: "व्हॅनचे नाव", field_email: "ईमेल",
+    field_password: "पासवर्ड", field_phoneOptional: "फोन (ऐच्छिक)",
+    btn_createAccount: "खाते तयार करा", btn_login: "लॉग इन", btn_pleaseWait: "कृपया थांबा…",
+    link_forgotPassword: "पासवर्ड विसरलात?", heading_resetPassword: "तुमचा पासवर्ड रीसेट करा",
+    text_resetInstructions: "तुमचा खाते ईमेल टाका, आम्ही तुम्हाला रीसेट लिंक पाठवू.",
+    btn_sendResetLink: "रीसेट लिंक पाठवा", link_backToLogin: "लॉग इनकडे परत जा",
+    heading_setNewPassword: "नवीन पासवर्ड सेट करा", field_newPassword: "नवीन पासवर्ड",
+    btn_updatePassword: "पासवर्ड अपडेट करा", label_apiBase: "API:",
+    field_backendUrl: "बॅकएंड API बेस URL",
+    text_backendUrlHelp: "बॅकएंड डिप्लॉय केल्यावर Railway (किंवा तुमच्या होस्टने) दिलेला हा URL आहे.",
+    status_onRoute: "मार्गावर", status_dueSoon: "लवकरच देय", status_lapsed: "संपले",
+    heading_schools: "शाळा", text_noSchools: "अजून शाळा नाही — खाली एक जोडा.",
+    placeholder_schoolName: "उदा. सेंट झेवियर हायस्कूल", btn_add: "जोडा",
+    heading_roster: "यादी", btn_addStudent: "विद्यार्थी जोडा",
+    text_noStudents: "यादीत अजून विद्यार्थी नाहीत.",
+    days_noData: "माहिती नाही", days_over: "दिवस उलटले", days_left: "दिवस शिल्लक",
+    title_renew: "नूतनीकरण", title_remove: "काढा", title_refresh: "रिफ्रेश",
+    title_settings: "सेटिंग्ज", title_logout: "लॉग आउट", title_language: "भाषा",
+    modal_addStudent: "विद्यार्थी जोडा", field_studentName: "विद्यार्थ्याचे नाव", field_school: "शाळा",
+    option_selectSchool: "शाळा निवडा…", field_parentName: "पालकांचे नाव",
+    field_parentPhone: "पालकांचा फोन", field_route: "मार्ग (ऐच्छिक)", field_cycle: "सायकल",
+    field_startDate: "सुरुवात तारीख", field_amount: "रक्कम", btn_addToRoster: "यादीत जोडा",
+    modal_renew: "नूतनीकरण", btn_recordPayment: "पेमेंट नोंदवा",
+    confirm_removeStudent: "{name} ला यादीतून काढायचे का?",
+    error_fillRequired: "नाव, शाळा, पालकांचा फोन आणि सुरुवात तारीख भरा.",
+    text_chooseLanguage: "तुमची भाषा निवडा", text_chooseLanguageSub: "तुम्ही ही कधीही बदलू शकता.",
+    btn_continue: "पुढे चला",
+  },
+};
+
+const STATUS_META_KEYS = {
+  active:   { key: "status_onRoute",  color: "#34D399", bg: "rgba(52,211,153,0.12)", icon: CheckCircle2 },
+  expiring: { key: "status_dueSoon",  color: "#F5A623", bg: "rgba(245,166,35,0.14)", icon: Clock },
+  expired:  { key: "status_lapsed",   color: "#F87171", bg: "rgba(248,113,113,0.14)", icon: AlertTriangle },
 };
 
 function daysUntil(dateStr) {
@@ -66,6 +167,24 @@ export default function VanTrack() {
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
   );
   const [showSettings, setShowSettings] = useState(false);
+
+  const [lang, setLangState] = useState(() => localStorage.getItem(LANG_KEY) || "");
+  const [showLangPicker, setShowLangPicker] = useState(false);
+
+  function chooseLanguage(code) {
+    localStorage.setItem(LANG_KEY, code);
+    setLangState(code);
+    setShowLangPicker(false);
+  }
+
+  function t(key, vars) {
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+    let str = dict[key] || TRANSLATIONS.en[key] || key;
+    if (vars) {
+      Object.keys(vars).forEach((k) => { str = str.replace(`{${k}}`, vars[k]); });
+    }
+    return str;
+  }
 
   const [token, setToken] = useState(null);
   const [owner, setOwner] = useState(null);
@@ -236,7 +355,7 @@ export default function VanTrack() {
     e.preventDefault();
     setAddStudentError("");
     if (!studentForm.name || !studentForm.schoolId || !studentForm.parentPhone || !studentForm.startDate) {
-      setAddStudentError("Fill in name, school, parent phone and start date.");
+      setAddStudentError(t("error_fillRequired"));
       return;
     }
     try {
@@ -284,7 +403,7 @@ export default function VanTrack() {
   }
 
   async function handleDelete(student) {
-    if (!window.confirm(`Remove ${student.name} from the roster?`)) return;
+    if (!window.confirm(t("confirm_removeStudent", { name: student.name }))) return;
     try {
       await api(`/api/students/${student.id}`, { method: "DELETE" });
       loadData();
@@ -304,11 +423,54 @@ export default function VanTrack() {
     fontFamily: "'Space Grotesk', system-ui, sans-serif",
   };
 
+  function LangPickerOverlay({ onClose }) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center p-4 z-30" style={{ background: "rgba(0,0,0,0.7)" }}>
+        <div className="w-full max-w-xs rounded-lg p-5" style={{ background: panel, border: `1px solid ${border}` }}>
+          <div className="text-sm font-semibold mb-1">{t("text_chooseLanguage")}</div>
+          <p className="text-xs mb-3" style={{ color: "#7A879C" }}>{t("text_chooseLanguageSub")}</p>
+          <div className="space-y-2">
+            {LANGUAGES.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => { chooseLanguage(l.code); if (onClose) onClose(); }}
+                className="w-full rounded-md py-2 text-sm font-medium text-left px-3"
+                style={{
+                  background: lang === l.code ? "#1B2440" : "#0B1220",
+                  border: `1px solid ${lang === l.code ? "#F5A623" : border}`,
+                  color: lang === l.code ? "#F5A623" : "#E8ECF4",
+                }}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+          {onClose && (
+            <button onClick={onClose} className="w-full text-center text-xs mt-3" style={{ color: "#7A879C" }}>
+              {t("btn_continue")}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- FIRST-RUN LANGUAGE PICKER ----------
+  if (!lang) {
+    return (
+      <div style={pageStyle} className="flex items-center justify-center p-4">
+        <style>{FONT_IMPORT}</style>
+        <LangPickerOverlay />
+      </div>
+    );
+  }
+
   // ---------- AUTH SCREEN ----------
   if (!token) {
     return (
       <div style={pageStyle} className="flex items-center justify-center p-4">
         <style>{FONT_IMPORT}</style>
+        {showLangPicker && <LangPickerOverlay onClose={() => setShowLangPicker(false)} />}
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-6 justify-center">
             <div className="w-9 h-9 rounded-md flex items-center justify-center" style={{ background: "#F5A623" }}>
@@ -326,40 +488,40 @@ export default function VanTrack() {
                     className="flex-1 py-2 text-sm font-medium transition-colors"
                     style={{ background: authMode === "login" ? "#1B2440" : "transparent", color: authMode === "login" ? "#F5A623" : "#7A879C" }}
                   >
-                    Log in
+                    {t("tab_login")}
                   </button>
                   <button
                     onClick={() => { setAuthMode("signup"); setAuthError(""); }}
                     className="flex-1 py-2 text-sm font-medium transition-colors"
                     style={{ background: authMode === "signup" ? "#1B2440" : "transparent", color: authMode === "signup" ? "#F5A623" : "#7A879C" }}
                   >
-                    Sign up
+                    {t("tab_signup")}
                   </button>
                 </div>
 
                 <form onSubmit={handleAuth} className="space-y-3">
                   {authMode === "signup" && (
                     <>
-                      <Field label="Your name">
+                      <Field label={t("field_yourName")}>
                         <input className={inputCls} style={inputStyle} value={authForm.name}
                           onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })} required />
                       </Field>
-                      <Field label="Van name">
+                      <Field label={t("field_vanName")}>
                         <input className={inputCls} style={inputStyle} value={authForm.vanName}
                           onChange={(e) => setAuthForm({ ...authForm, vanName: e.target.value })} required />
                       </Field>
                     </>
                   )}
-                  <Field label="Email">
+                  <Field label={t("field_email")}>
                     <input type="email" className={inputCls} style={inputStyle} value={authForm.email}
                       onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} required />
                   </Field>
-                  <Field label="Password">
+                  <Field label={t("field_password")}>
                     <input type="password" className={inputCls} style={inputStyle} value={authForm.password}
                       onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} required />
                   </Field>
                   {authMode === "signup" && (
-                    <Field label="Phone (optional)">
+                    <Field label={t("field_phoneOptional")}>
                       <input className={inputCls} style={inputStyle} value={authForm.phone}
                         onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })} />
                     </Field>
@@ -377,7 +539,7 @@ export default function VanTrack() {
                     className="w-full rounded-md py-2 text-sm font-semibold flex items-center justify-center gap-2"
                     style={{ background: "#F5A623", color: "#0B1220" }}
                   >
-                    {authLoading ? "Please wait…" : authMode === "signup" ? "Create account" : "Log in"}
+                    {authLoading ? t("btn_pleaseWait") : authMode === "signup" ? t("btn_createAccount") : t("btn_login")}
                     <ChevronRight size={15} />
                   </button>
 
@@ -388,7 +550,7 @@ export default function VanTrack() {
                       className="w-full text-center text-xs mt-1"
                       style={{ color: "#7A879C" }}
                     >
-                      Forgot password?
+                      {t("link_forgotPassword")}
                     </button>
                   )}
                 </form>
@@ -397,11 +559,11 @@ export default function VanTrack() {
 
             {authMode === "forgot" && (
               <form onSubmit={handleForgotPassword} className="space-y-3">
-                <div className="text-sm font-semibold mb-1">Reset your password</div>
+                <div className="text-sm font-semibold mb-1">{t("heading_resetPassword")}</div>
                 <p className="text-xs mb-2" style={{ color: "#7A879C" }}>
-                  Enter your account email and we'll send you a reset link.
+                  {t("text_resetInstructions")}
                 </p>
-                <Field label="Email">
+                <Field label={t("field_email")}>
                   <input type="email" className={inputCls} style={inputStyle} value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)} required />
                 </Field>
@@ -423,7 +585,7 @@ export default function VanTrack() {
                   className="w-full rounded-md py-2 text-sm font-semibold"
                   style={{ background: "#F5A623", color: "#0B1220" }}
                 >
-                  {authLoading ? "Please wait…" : "Send reset link"}
+                  {authLoading ? t("btn_pleaseWait") : t("btn_sendResetLink")}
                 </button>
                 <button
                   type="button"
@@ -431,15 +593,15 @@ export default function VanTrack() {
                   className="w-full text-center text-xs"
                   style={{ color: "#7A879C" }}
                 >
-                  Back to log in
+                  {t("link_backToLogin")}
                 </button>
               </form>
             )}
 
             {authMode === "reset" && (
               <form onSubmit={handleResetPassword} className="space-y-3">
-                <div className="text-sm font-semibold mb-1">Set a new password</div>
-                <Field label="New password">
+                <div className="text-sm font-semibold mb-1">{t("heading_setNewPassword")}</div>
+                <Field label={t("field_newPassword")}>
                   <input type="password" className={inputCls} style={inputStyle} value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)} required />
                 </Field>
@@ -461,7 +623,7 @@ export default function VanTrack() {
                   className="w-full rounded-md py-2 text-sm font-semibold"
                   style={{ background: "#F5A623", color: "#0B1220" }}
                 >
-                  {authLoading ? "Please wait…" : "Update password"}
+                  {authLoading ? t("btn_pleaseWait") : t("btn_updatePassword")}
                 </button>
                 <button
                   type="button"
@@ -469,27 +631,37 @@ export default function VanTrack() {
                   className="w-full text-center text-xs"
                   style={{ color: "#7A879C" }}
                 >
-                  Back to log in
+                  {t("link_backToLogin")}
                 </button>
               </form>
             )}
           </div>
 
-          <button
-            onClick={() => setShowSettings((s) => !s)}
-            className="mt-4 mx-auto flex items-center gap-1.5 text-xs"
-            style={{ color: "#7A879C" }}
-          >
-            <Settings size={13} /> API: {apiBase}
-          </button>
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <button
+              onClick={() => setShowSettings((s) => !s)}
+              className="flex items-center gap-1.5 text-xs"
+              style={{ color: "#7A879C" }}
+            >
+              <Settings size={13} /> {t("label_apiBase")} {apiBase}
+            </button>
+            <button
+              onClick={() => setShowLangPicker(true)}
+              className="flex items-center gap-1.5 text-xs"
+              style={{ color: "#7A879C" }}
+              title={t("title_language")}
+            >
+              <Globe size={13} /> {LANGUAGES.find((l) => l.code === lang)?.label}
+            </button>
+          </div>
           {showSettings && (
             <div className="mt-2 rounded-md p-3" style={{ background: panel, border: `1px solid ${border}` }}>
-              <Field label="Backend API base URL">
+              <Field label={t("field_backendUrl")}>
                 <input className={inputCls} style={inputStyle} value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)} placeholder="https://your-app.up.railway.app" />
               </Field>
               <p className="text-[11px] mt-2" style={{ color: "#7A879C" }}>
-                This is the URL Railway (or your host) gave you when you deployed the backend.
+                {t("text_backendUrlHelp")}
               </p>
             </div>
           )}
@@ -507,6 +679,7 @@ export default function VanTrack() {
   return (
     <div style={pageStyle}>
       <style>{FONT_IMPORT}</style>
+      {showLangPicker && <LangPickerOverlay onClose={() => setShowLangPicker(false)} />}
 
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-10" style={{ background: bg, borderBottom: `1px solid ${border}` }}>
         <div className="flex items-center gap-2">
@@ -519,13 +692,16 @@ export default function VanTrack() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={loadData} className="p-2 rounded-md" style={{ color: "#7A879C" }} title="Refresh">
+          <button onClick={loadData} className="p-2 rounded-md" style={{ color: "#7A879C" }} title={t("title_refresh")}>
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
-          <button onClick={() => setShowSettings((s) => !s)} className="p-2 rounded-md" style={{ color: "#7A879C" }} title="Settings">
+          <button onClick={() => setShowLangPicker(true)} className="p-2 rounded-md" style={{ color: "#7A879C" }} title={t("title_language")}>
+            <Globe size={16} />
+          </button>
+          <button onClick={() => setShowSettings((s) => !s)} className="p-2 rounded-md" style={{ color: "#7A879C" }} title={t("title_settings")}>
             <Settings size={16} />
           </button>
-          <button onClick={logOut} className="p-2 rounded-md" style={{ color: "#7A879C" }} title="Log out">
+          <button onClick={logOut} className="p-2 rounded-md" style={{ color: "#7A879C" }} title={t("title_logout")}>
             <LogOut size={16} />
           </button>
         </div>
@@ -533,7 +709,7 @@ export default function VanTrack() {
 
       {showSettings && (
         <div className="px-4 py-3" style={{ borderBottom: `1px solid ${border}` }}>
-          <Field label="Backend API base URL">
+          <Field label={t("field_backendUrl")}>
             <input className={inputCls} style={inputStyle} value={apiBase}
               onChange={(e) => setApiBase(e.target.value)} />
           </Field>
@@ -544,7 +720,7 @@ export default function VanTrack() {
         {/* Status summary */}
         <div className="grid grid-cols-3 gap-2">
           {["active", "expiring", "expired"].map((key) => {
-            const meta = STATUS_META[key];
+            const meta = STATUS_META_KEYS[key];
             const Icon = meta.icon;
             return (
               <div key={key} className="rounded-lg p-3" style={{ background: panel, border: `1px solid ${border}` }}>
@@ -552,7 +728,7 @@ export default function VanTrack() {
                 <div className="text-2xl font-bold mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   {counts[key] || 0}
                 </div>
-                <div className="text-[10px] uppercase tracking-wide" style={{ color: "#7A879C" }}>{meta.label}</div>
+                <div className="text-[10px] uppercase tracking-wide" style={{ color: "#7A879C" }}>{t(meta.key)}</div>
               </div>
             );
           })}
@@ -569,10 +745,10 @@ export default function VanTrack() {
         <div className="rounded-lg p-4" style={{ background: panel, border: `1px solid ${border}` }}>
           <div className="flex items-center gap-2 mb-3">
             <School size={15} color="#7A879C" />
-            <span className="text-sm font-semibold">Schools</span>
+            <span className="text-sm font-semibold">{t("heading_schools")}</span>
           </div>
           <div className="flex flex-wrap gap-2 mb-3">
-            {schools.length === 0 && <span className="text-xs" style={{ color: "#7A879C" }}>No schools yet — add one below.</span>}
+            {schools.length === 0 && <span className="text-xs" style={{ color: "#7A879C" }}>{t("text_noSchools")}</span>}
             {schools.map((s) => (
               <span key={s.id} className="text-xs px-2.5 py-1 rounded-full" style={{ background: "#1B2440", border: `1px solid ${border}` }}>
                 {s.name}
@@ -582,12 +758,12 @@ export default function VanTrack() {
           <form onSubmit={handleAddSchool} className="flex gap-2">
             <input
               className={inputCls} style={inputStyle}
-              placeholder="e.g. St. Xavier's High School"
+              placeholder={t("placeholder_schoolName")}
               value={newSchoolName}
               onChange={(e) => setNewSchoolName(e.target.value)}
             />
             <button type="submit" className="rounded-md px-3 text-sm font-medium shrink-0" style={{ background: "#1B2440", color: "#F5A623", border: `1px solid ${border}` }}>
-              Add
+              {t("btn_add")}
             </button>
           </form>
         </div>
@@ -597,26 +773,26 @@ export default function VanTrack() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Users size={15} color="#7A879C" />
-              <span className="text-sm font-semibold">Roster</span>
+              <span className="text-sm font-semibold">{t("heading_roster")}</span>
             </div>
             <button
               onClick={() => setShowAddStudent(true)}
               className="flex items-center gap-1 text-xs font-medium rounded-md px-2.5 py-1.5"
               style={{ background: "#F5A623", color: "#0B1220" }}
             >
-              <Plus size={13} /> Add student
+              <Plus size={13} /> {t("btn_addStudent")}
             </button>
           </div>
 
           {students.length === 0 && !loading && (
             <div className="text-sm text-center py-8" style={{ color: "#7A879C" }}>
-              No students on the roster yet.
+              {t("text_noStudents")}
             </div>
           )}
 
           <div className="space-y-2">
             {students.map((s) => {
-              const meta = STATUS_META[s.status] || STATUS_META.active;
+              const meta = STATUS_META_KEYS[s.status] || STATUS_META_KEYS.active;
               const d = daysUntil(s.end_date);
               return (
                 <div key={s.id} className="rounded-md p-3 flex items-center justify-between gap-3" style={{ background: "#0F1626", border: `1px solid ${border}` }}>
@@ -624,7 +800,7 @@ export default function VanTrack() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium truncate">{s.name}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0" style={{ background: meta.bg, color: meta.color }}>
-                        {meta.label}
+                        {t(meta.key)}
                       </span>
                     </div>
                     <div className="text-[11px] truncate mt-0.5" style={{ color: "#7A879C" }}>
@@ -640,18 +816,18 @@ export default function VanTrack() {
                     <div className="text-right">
                       <SplitDigits value={d === null ? "--" : Math.abs(d)} />
                       <div className="text-[9px] uppercase mt-0.5" style={{ color: "#7A879C" }}>
-                        {d === null ? "no data" : d < 0 ? "days over" : "days left"}
+                        {d === null ? t("days_noData") : d < 0 ? t("days_over") : t("days_left")}
                       </div>
                     </div>
                     <button
                       onClick={() => { setRenewTarget(s); setRenewForm({ cycleMonths: "1", startDate: new Date().toISOString().slice(0, 10), amount: "" }); }}
-                      className="p-2 rounded-md" style={{ background: "#1B2440", color: "#F5A623" }} title="Renew"
+                      className="p-2 rounded-md" style={{ background: "#1B2440", color: "#F5A623" }} title={t("title_renew")}
                     >
                       <RefreshCw size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(s)}
-                      className="p-2 rounded-md" style={{ background: "#1B2440", color: "#F87171" }} title="Remove"
+                      className="p-2 rounded-md" style={{ background: "#1B2440", color: "#F87171" }} title={t("title_remove")}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -668,37 +844,37 @@ export default function VanTrack() {
         <div className="fixed inset-0 flex items-end sm:items-center justify-center p-4 z-20" style={{ background: "rgba(0,0,0,0.6)" }}>
           <div className="w-full max-w-sm rounded-lg p-4" style={{ background: panel, border: `1px solid ${border}` }}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold">Add student</span>
+              <span className="text-sm font-semibold">{t("modal_addStudent")}</span>
               <button onClick={() => setShowAddStudent(false)}><X size={16} color="#7A879C" /></button>
             </div>
             <form onSubmit={handleAddStudent} className="space-y-3">
-              <Field label="Student name">
+              <Field label={t("field_studentName")}>
                 <input className={inputCls} style={inputStyle} value={studentForm.name}
                   onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} required />
               </Field>
-              <Field label="School">
+              <Field label={t("field_school")}>
                 <select className={inputCls} style={inputStyle} value={studentForm.schoolId}
                   onChange={(e) => setStudentForm({ ...studentForm, schoolId: e.target.value })} required>
-                  <option value="">Select school…</option>
+                  <option value="">{t("option_selectSchool")}</option>
                   {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Parent name">
+                <Field label={t("field_parentName")}>
                   <input className={inputCls} style={inputStyle} value={studentForm.parentName}
                     onChange={(e) => setStudentForm({ ...studentForm, parentName: e.target.value })} />
                 </Field>
-                <Field label="Parent phone">
+                <Field label={t("field_parentPhone")}>
                   <input className={inputCls} style={inputStyle} value={studentForm.parentPhone}
                     onChange={(e) => setStudentForm({ ...studentForm, parentPhone: e.target.value })} required />
                 </Field>
               </div>
-              <Field label="Route (optional)">
+              <Field label={t("field_route")}>
                 <input className={inputCls} style={inputStyle} value={studentForm.route}
                   onChange={(e) => setStudentForm({ ...studentForm, route: e.target.value })} />
               </Field>
               <div className="grid grid-cols-3 gap-2">
-                <Field label="Cycle">
+                <Field label={t("field_cycle")}>
                   <select className={inputCls} style={inputStyle} value={studentForm.cycleMonths}
                     onChange={(e) => setStudentForm({ ...studentForm, cycleMonths: e.target.value })}>
                     <option value="1">1 mo</option>
@@ -706,11 +882,11 @@ export default function VanTrack() {
                     <option value="3">3 mo</option>
                   </select>
                 </Field>
-                <Field label="Start date">
+                <Field label={t("field_startDate")}>
                   <input type="date" className={inputCls} style={inputStyle} value={studentForm.startDate}
                     onChange={(e) => setStudentForm({ ...studentForm, startDate: e.target.value })} required />
                 </Field>
-                <Field label="Amount">
+                <Field label={t("field_amount")}>
                   <input type="number" className={inputCls} style={inputStyle} value={studentForm.amount}
                     onChange={(e) => setStudentForm({ ...studentForm, amount: e.target.value })} />
                 </Field>
@@ -723,7 +899,7 @@ export default function VanTrack() {
               )}
 
               <button type="submit" className="w-full rounded-md py-2 text-sm font-semibold" style={{ background: "#F5A623", color: "#0B1220" }}>
-                Add to roster
+                {t("btn_addToRoster")}
               </button>
             </form>
           </div>
@@ -735,12 +911,12 @@ export default function VanTrack() {
         <div className="fixed inset-0 flex items-end sm:items-center justify-center p-4 z-20" style={{ background: "rgba(0,0,0,0.6)" }}>
           <div className="w-full max-w-sm rounded-lg p-4" style={{ background: panel, border: `1px solid ${border}` }}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold">Renew — {renewTarget.name}</span>
+              <span className="text-sm font-semibold">{t("modal_renew")} — {renewTarget.name}</span>
               <button onClick={() => setRenewTarget(null)}><X size={16} color="#7A879C" /></button>
             </div>
             <form onSubmit={handleRenew} className="space-y-3">
               <div className="grid grid-cols-3 gap-2">
-                <Field label="Cycle">
+                <Field label={t("field_cycle")}>
                   <select className={inputCls} style={inputStyle} value={renewForm.cycleMonths}
                     onChange={(e) => setRenewForm({ ...renewForm, cycleMonths: e.target.value })}>
                     <option value="1">1 mo</option>
@@ -748,11 +924,11 @@ export default function VanTrack() {
                     <option value="3">3 mo</option>
                   </select>
                 </Field>
-                <Field label="Start date">
+                <Field label={t("field_startDate")}>
                   <input type="date" className={inputCls} style={inputStyle} value={renewForm.startDate}
                     onChange={(e) => setRenewForm({ ...renewForm, startDate: e.target.value })} required />
                 </Field>
-                <Field label="Amount">
+                <Field label={t("field_amount")}>
                   <input type="number" className={inputCls} style={inputStyle} value={renewForm.amount}
                     onChange={(e) => setRenewForm({ ...renewForm, amount: e.target.value })} />
                 </Field>
@@ -765,7 +941,7 @@ export default function VanTrack() {
               )}
 
               <button type="submit" className="w-full rounded-md py-2 text-sm font-semibold" style={{ background: "#F5A623", color: "#0B1220" }}>
-                Record payment
+                {t("btn_recordPayment")}
               </button>
             </form>
           </div>
