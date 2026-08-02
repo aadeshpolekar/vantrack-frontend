@@ -51,6 +51,7 @@ const TRANSLATIONS = {
     error_invalidEmail: "Enter a valid email address.",
     error_invalidPhone: "Phone number must be 10 digits.",
     error_weakPassword: "Password must be at least 8 characters.",
+    error_network: "Couldn't connect. Check your internet and try again.",
     text_chooseLanguage: "Choose your language", text_chooseLanguageSub: "You can change this anytime.",
     btn_continue: "Continue",
     placeholder_search: "Search by student or school…",
@@ -94,6 +95,7 @@ const TRANSLATIONS = {
     error_invalidEmail: "एक वैध ईमेल पता दर्ज करें।",
     error_invalidPhone: "फ़ोन नंबर 10 अंकों का होना चाहिए।",
     error_weakPassword: "पासवर्ड कम से कम 8 अक्षर का होना चाहिए।",
+    error_network: "कनेक्ट नहीं हो सका। अपना इंटरनेट जांचें और फिर से कोशिश करें।",
     text_chooseLanguage: "अपनी भाषा चुनें", text_chooseLanguageSub: "आप इसे कभी भी बदल सकते हैं।",
     btn_continue: "जारी रखें",
     placeholder_search: "छात्र या स्कूल खोजें…",
@@ -137,6 +139,7 @@ const TRANSLATIONS = {
     error_invalidEmail: "वैध ईमेल पत्ता टाका.",
     error_invalidPhone: "फोन नंबर 10 अंकी असावा.",
     error_weakPassword: "पासवर्ड किमान 8 अक्षरांचा असावा.",
+    error_network: "कनेक्ट होऊ शकले नाही. तुमचे इंटरनेट तपासा आणि पुन्हा प्रयत्न करा.",
     text_chooseLanguage: "तुमची भाषा निवडा", text_chooseLanguageSub: "तुम्ही ही कधीही बदलू शकता.",
     btn_continue: "पुढे चला",
     placeholder_search: "विद्यार्थी किंवा शाळा शोधा…",
@@ -298,14 +301,19 @@ export default function VanTrack() {
 
   const api = useCallback(
     async (path, options = {}) => {
-      const res = await fetch(`${apiBase}${path}`, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(options.headers || {}),
-        },
-      });
+      let res;
+      try {
+        res = await fetch(`${apiBase}${path}`, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(options.headers || {}),
+          },
+        });
+      } catch (networkErr) {
+        throw new Error(t("error_network"));
+      }
       let body = null;
       const text = await res.text();
       try { body = text ? JSON.parse(text) : null; } catch { body = text; }
@@ -315,7 +323,7 @@ export default function VanTrack() {
       }
       return body;
     },
-    [apiBase, token]
+    [apiBase, token, lang]
   );
 
   const loadData = useCallback(async () => {
